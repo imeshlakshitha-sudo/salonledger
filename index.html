@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- =========================================================
+     index.html — SalonLedger page structure only.
+     Styles: css/theme.css, css/layout.css, css/components.css
+     Logic:  js/app.js (entry) -> storage, calc, dashboard, summary, settings
+     NOTE: ES modules need a local server (e.g. VS Code "Live Server"), not file://
+     ========================================================= -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SalonLedger</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/theme.css">
+<link rel="stylesheet" href="./css/layout.css">
+<link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+<!-- ===== NAV-1. APP SHELL + DESKTOP SIDEBAR (>= 768px) ===== -->
+<div class="app">
+<nav class="side" aria-label="Main">
+  <div class="brand">Salon<span>Ledger</span></div>
+  <button class="item on" data-view="home">Home</button>
+  <button class="item" data-view="summary">Month Summary</button>
+  <button class="item" data-view="settings">Settings</button>
+  <div class="muted" id="sideProfile" style="margin-top:auto;font-size:12px;padding:0 10px"></div>
+</nav>
+<main class="main">
+
+<!-- ===== VIEW 1: HOME (dashboard — js/dashboard.js) ===== -->
+<div class="wrap view active" id="view-home">
+
+<!-- A. HEADER: BRAND, DEMO/LIVE SWITCH, RESET -->
+<header class="top">
+  <div><div class="brand">Salon<span>Ledger</span></div><div class="muted" id="profileLine" style="font-size:12px"></div></div>
+  <div class="top-actions">
+    <div class="seg" id="modeSeg" role="group" aria-label="Data mode">
+      <button data-mode="demo">Demo Mode</button>
+      <button data-mode="live">Live Mode</button>
+    </div>
+    <button class="btn danger" id="resetBtn"></button>
+  </div>
+</header>
+<div class="mode-note muted" id="modeNote"></div>
+
+<!-- B. PERIOD FILTER -->
+<div class="controls">
+  <div class="seg" id="periodSeg" role="group" aria-label="Period">
+    <button data-p="this">This Month</button>
+    <button data-p="selected">Selected Month</button>
+    <button data-p="all">All</button>
+  </div>
+  <div class="muted" id="periodLabel"></div>
+</div>
+
+<!-- C. SUMMARY CARDS + HEALTH INDICATOR -->
+<section class="kpis">
+  <div class="card kpi profit"><div class="label">Profit (Income)</div><div class="value" id="kProfit">0</div></div>
+  <div class="card kpi expense"><div class="label">Expenses</div><div class="value" id="kExp">0</div></div>
+  <div class="card kpi"><div class="label">Net Profit</div><div class="value" id="kNet">0</div></div>
+</section>
+<section class="card health">
+  <div class="badge" id="healthBadge"><i></i><span id="healthText">No data</span></div>
+  <div class="hbar"><div class="track"><div class="fill" id="healthFill"></div></div><small id="healthSub"></small></div>
+</section>
+
+<!-- D. CHARTS -->
+<section class="charts">
+  <div class="card">
+    <h2>Business Growth <span class="muted" style="font-weight:500" id="growthSub"></span></h2>
+    <div class="chart-box"><canvas id="growthChart"></canvas><div class="empty" id="growthEmpty">No data for this period yet</div></div>
+  </div>
+  <div class="card">
+    <h2>Expense Breakdown</h2>
+    <div class="chart-box" style="height:200px"><canvas id="pieChart"></canvas><div class="empty" id="pieEmpty">No expenses yet</div></div>
+    <div class="legend" id="pieLegend"></div>
+  </div>
+</section>
+
+<!-- E. CALENDAR -->
+<section class="card cal">
+  <div class="cal-head">
+    <button class="nav" id="prevM" aria-label="Previous month">‹</button>
+    <h2 id="calTitle"></h2>
+    <button class="nav" id="nextM" aria-label="Next month">›</button>
+  </div>
+  <div class="grid" id="calGrid"></div>
+  <div class="muted" style="margin-top:8px;font-size:12px">Tap a date to view, add, edit or delete entries. Amounts show the day’s net.</div>
+</section>
+</div><!-- /view-home -->
+
+<!-- ===== VIEW 2: MONTH SUMMARY (js/summary.js) ===== -->
+<div class="wrap view" id="view-summary">
+  <header class="top">
+    <div class="brand">Month Summary</div>
+    <div class="top-actions"><button class="nav" id="sumPrev" aria-label="Previous month">‹</button><b id="sumTitle" style="min-width:130px;text-align:center"></b><button class="nav" id="sumNext" aria-label="Next month">›</button></div>
+  </header>
+  <div class="mode-note muted" id="sumMode"></div>
+  <section class="kpis">
+    <div class="card kpi profit"><div class="label">Profit (Income)</div><div class="value" id="sProfit">0</div></div>
+    <div class="card kpi expense"><div class="label">Expenses</div><div class="value" id="sExp">0</div></div>
+    <div class="card kpi"><div class="label">Net Profit</div><div class="value" id="sNet">0</div></div>
+  </section>
+  <div class="muted" id="sumCount" style="margin:10px 2px;font-size:13px"></div>
+  <section class="two">
+    <div class="card"><h2>Income by service</h2><div class="legend" id="sumInc"></div></div>
+    <div class="card"><h2>Expenses by category</h2><div class="legend" id="sumExp"></div></div>
+  </section>
+  <section class="card" style="margin-top:12px"><h2>All entries</h2>
+    <!-- scrolls inside its own box (.scroll-box) -->
+    <div class="entries scroll-box" id="sumEntries" style="margin:0"></div>
+  </section>
+  <div class="row" style="margin-top:12px"><button class="btn primary" id="dlCsv">Download Summary (CSV)</button><button class="btn" id="dlPrint">Printable / Save as PDF</button></div>
+  <div class="muted" style="font-size:12px;margin-top:6px">Printable opens as a clean page: use your browser’s Print → Save as PDF.</div>
+</div>
+
+<!-- ===== VIEW 3: SETTINGS (js/settings.js) ===== -->
+<div class="wrap view" id="view-settings">
+  <header class="top"><div class="brand">Settings</div></header>
+  <div class="stack">
+    <!-- Profile -->
+    <section class="card"><h2>Profile</h2>
+      <div class="form" style="border:0;padding:0">
+        <label>Name<input type="text" id="pName" maxlength="40" placeholder="e.g. Nimal Perera"></label>
+        <label>Title / Role<input type="text" id="pTitle" maxlength="50" placeholder="e.g. Owner, Glow Hair Studio"></label>
+        <div class="row" style="align-items:center"><button class="btn primary" id="pSave" style="flex:none">Save profile</button><span class="muted" id="pStatus"></span></div>
+      </div>
+    </section>
+    <!-- Subscription -->
+    <section class="card"><h2>Subscription</h2>
+      <div class="totals"><span>Plan: Pilot (Free)</span><span style="color:var(--pos-hi)">Status: Active</span><span>Billing: none</span></div>
+      <div class="muted">Includes the dashboard, calendar, saved packages and expense items, monthly summary and CSV export, stored on this device.</div>
+      <div class="entry" style="margin-top:12px"><div class="info"><b>Manage / Upgrade Plan</b><small>Paid plans (Starter, Pro) are not available yet. No payment is taken in this version.</small></div></div>
+    </section>
+    <!-- Privacy Policy -->
+    <section class="card prose"><h2>Privacy Policy</h2>
+      <h4>Where your data lives</h4><p>In this version everything you enter (income, expenses, saved packages, profile) is stored only in your browser’s <code>localStorage</code> on this device. SalonLedger has no server and sends nothing anywhere.</p>
+      <h4>Demo vs. Live data</h4><p>Demo Mode uses sample data in its own storage area. Live Mode uses a separate area for your real salon data. Switching modes never copies, mixes or overwrites either one.</p>
+      <h4>Your control</h4><p>Use Clear Live Data to erase live entries, or clear your browser’s site data to remove everything. Because data is local, clearing the browser or switching devices will remove access to it, so download a monthly CSV as a backup.</p>
+      <h4>When cloud sync arrives</h4><p>If optional cloud sync is added later, it will be opt-in, this policy will be updated first, and you will be told what is stored, where, and how to delete it. Local-only use will stay available.</p>
+    </section>
+  </div>
+</div>
+
+</main>
+</div><!-- /app -->
+
+<!-- ===== NAV-2. MOBILE BOTTOM NAV (< 768px) ===== -->
+<nav class="bottom" aria-label="Main">
+  <button class="on" data-view="home">Home</button>
+  <button data-view="summary">Month Summary</button>
+  <button data-view="settings">Settings</button>
+</nav>
+
+<!-- ===== F. DAY POPUP MODAL (CRUD — js/dashboard.js) ===== -->
+<div class="overlay" id="dayOv">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="row" style="align-items:center"><h3 id="dayTitle"></h3><button class="icon" id="dayClose" style="flex:none" aria-label="Close">✕</button></div>
+    <div class="totals" id="dayTotals"></div>
+    <!-- scrolls inside a compact container (.scroll-box.day-scroll) -->
+    <div class="entries scroll-box day-scroll" id="dayList"></div>
+    <form class="form" id="entryForm" autocomplete="off">
+      <h4 id="formTitle">Add entry</h4>
+      <div class="seg" id="typeSeg"><button type="button" data-t="income" style="flex:1">Income</button><button type="button" data-t="expense" style="flex:1">Expense</button></div>
+      <!-- Saved packages / expense items: tap a chip to auto-fill title + amount -->
+      <div><div class="muted" id="chipLabel" style="font-size:12px;font-weight:600;margin-bottom:6px"></div><div class="chips" id="chipRow"></div></div>
+      <label>Title / Category<input type="text" id="fTitle" list="titleHints" maxlength="40" required placeholder="e.g. Haircut, Rent, Electricity"></label>
+      <datalist id="titleHints"><option value="Haircut"><option value="Hair Colour"><option value="Facial"><option value="Rent"><option value="Electricity"><option value="Water"><option value="Supplies"><option value="Salaries"></datalist>
+      <label>Amount<input type="number" id="fAmount" min="0" step="0.01" inputmode="decimal" required placeholder="0.00"></label>
+      <label>Note (optional)<input type="text" id="fNote" maxlength="80" placeholder="Optional: client name or short remark"></label>
+      <div class="row"><button type="submit" class="btn primary" id="fSave">Add entry</button><button type="button" class="btn" id="fCancel" style="display:none">Cancel edit</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== F2. MANAGE PACKAGES / SAVED EXPENSE ITEMS MODAL ===== -->
+<div class="overlay" id="mgrOv" style="z-index:55">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="row" style="align-items:center"><h3 id="mgrTitle"></h3><button class="icon" id="mgrClose" style="flex:none" aria-label="Close">✕</button></div>
+    <div class="entries" id="mgrList" style="margin-top:10px"></div>
+    <form class="form" id="mgrForm" autocomplete="off">
+      <label>Name<input type="text" id="mgrName" maxlength="40" required></label>
+      <label>Default amount<input type="number" id="mgrAmount" min="0" step="0.01" inputmode="decimal" required placeholder="0.00"></label>
+      <div class="row"><button type="submit" class="btn primary" id="mgrSave"></button><button type="button" class="btn" id="mgrCancel" style="display:none">Cancel edit</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== G. CONFIRM DIALOG ===== -->
+<div class="overlay" id="confOv" style="z-index:60">
+  <div class="modal" style="max-width:380px"><h3 id="confMsg"></h3>
+    <div class="row" style="margin-top:14px"><button class="btn" id="confNo">Cancel</button><button class="btn primary" id="confYes">Confirm</button></div>
+  </div>
+</div>
+
+<!-- Chart.js (classic script -> global `Chart`), then our ES-module entry point -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
